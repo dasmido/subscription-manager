@@ -2,7 +2,6 @@ package com.mo.application.views;
 
 import com.mo.application.data.User;
 import com.mo.application.security.AuthenticatedUser;
-import com.mo.application.views.customers.CustomersView;
 import com.mo.application.views.customers.CustomersViewO;
 import com.mo.application.views.serials.SerialsView;
 import com.vaadin.flow.component.applayout.AppLayout;
@@ -24,6 +23,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.auth.AccessAnnotationChecker;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import com.vaadin.flow.component.checkbox.Checkbox;
 import java.io.ByteArrayInputStream;
 import java.util.Optional;
 import org.vaadin.lineawesome.LineAwesomeIcon;
@@ -45,6 +45,7 @@ public class MainLayout extends AppLayout {
         setPrimarySection(Section.DRAWER);
         addDrawerContent();
         addHeaderContent();
+        
     }
 
     private void addHeaderContent() {

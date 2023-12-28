@@ -1,6 +1,13 @@
 package com.mo.application.views.customers;
 
+import java.util.Optional;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+
 import com.mo.application.data.Customer;
+import com.mo.application.data.SamplePerson;
+import com.mo.application.services.CustomerService;
 import com.mo.application.views.MainLayout;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.datepicker.DatePicker;
@@ -9,17 +16,24 @@ import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.renderer.LitRenderer;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.*;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteAlias;
+import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
+import com.vaadin.flow.theme.lumo.Lumo;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.notification.Notification.Position;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 
@@ -42,11 +56,11 @@ public class CustomersViewO extends Div implements BeforeEnterObserver{
 	private TextField hddinfo;
 	private TextField extra;
 	private TextField windowsversion;
-	private TextField activatedate;
+	private DatePicker  activatedate;
 	private TextField serialnumber;
 	private Checkbox revoke;
 	private TextField appversion;
-	private String activate;
+	private TextField activate;
 	private TextField lastseen;
 	private TextField activationcode;
 	
@@ -62,16 +76,44 @@ public class CustomersViewO extends Div implements BeforeEnterObserver{
 	// Binder
 	private final BeanValidationBinder<Customer> binder;
 	private Customer customer;
+	private final CustomerService customerService;
 	
 	
 	@Override
 	public void beforeEnter(BeforeEnterEvent event) {
-		// TODO Auto-generated method stub
-		
+		Optional<Long> customerId = event.getRouteParameters().get(CUSTOMER_ID).map(Long::parseLong);
+		if(customerId.isPresent()) {
+			//TODO: fix it
+			Optional<Customer> customerFromBackend = customerService.get(customerId.get());
+			if(customerFromBackend.isPresent()) {
+				populateForm(customerFromBackend.get());
+			} else {
+				Notification.show( String.format("The requested Customer was not found, ID = %s", customerId.get()), 3000,
+                        Notification.Position.BOTTOM_START);
+				// when a row is selected but the data is no longer available,
+                // refresh grid
+                refreshGrid();
+                event.forwardTo(CustomersViewO.class);
+			}
+		}
 	}
 	
-	public CustomersViewO() {
+	private void setTheme(boolean dark) {
+        var js = "document.documentElement.setAttribute('theme', $0)";
+
+        getElement().executeJs(js, dark ? Lumo.DARK : Lumo.LIGHT);
+    }
+	
+	public CustomersViewO(CustomerService customerService) {
+		this.customerService = customerService;
 		addClassNames("customers-view");
+		
+		var themeToggle = new Checkbox("Dark theme");
+        themeToggle.addValueChangeListener(e -> {
+            setTheme(e.getValue());
+        });
+
+        add(themeToggle);
 		
 		
 		// create UI view
@@ -81,12 +123,6 @@ public class CustomersViewO extends Div implements BeforeEnterObserver{
 		createGridLayout(splitLayout);
 		createEditorLayout(splitLayout);
 		
-		Button saveBtn = new Button();
-		saveBtn.setText("New");
-		
-		VerticalLayout vlayout = new VerticalLayout();
-		vlayout.add(saveBtn);
-		add(vlayout);
 		add(splitLayout);
 		
 		// Configure Grid
@@ -112,8 +148,19 @@ public class CustomersViewO extends Div implements BeforeEnterObserver{
 		grid.addColumn("lastseen").setAutoWidth(true);
 		grid.addColumn("activationcode").setAutoWidth(true);
 		
+		// Query database to display items
+		grid.setItems(query -> customerService.list(PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query))).stream());
 		grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
 		
+		// when a row is selected or deselected populate form
+		grid.asSingleSelect().addValueChangeListener(listener -> {
+			 if (listener.getValue() != null) {
+	                UI.getCurrent().navigate(String.format(CUSTOMER_EDIT_ROUTE, listener.getValue().getId()));
+	            } else {
+	                clearForm();
+	                UI.getCurrent().navigate(CustomersViewO.class);
+	            }
+		});
 		
 		// configure Form 
 		binder = new BeanValidationBinder<>(Customer.class);
@@ -130,6 +177,24 @@ public class CustomersViewO extends Div implements BeforeEnterObserver{
 		// save click handler 
 		save.addClickListener(click -> {
 			System.out.println("Save Clicked");
+			try {
+                if (this.customer == null) {
+                    this.customer = new Customer();
+                }
+                binder.writeBean(this.customer);
+                customerService.update(this.customer);
+                clearForm();
+                refreshGrid();
+                Notification.show("Data updated");
+                UI.getCurrent().navigate(CustomersViewO.class);
+            } catch (ObjectOptimisticLockingFailureException exception) {
+                Notification n = Notification.show(
+                        "Error updating the data. Somebody else has updated the record while you were making changes.");
+                n.setPosition(Position.MIDDLE);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            } catch (ValidationException validationException) {
+                Notification.show("Failed to update the data. Check again that all values are valid");
+            }
 		});
 		
 	}
@@ -149,9 +214,18 @@ public class CustomersViewO extends Div implements BeforeEnterObserver{
         address = new TextField("Address");
         bios = new TextField("Bios");
         macaddress = new TextField("Mac Address");
+        hddinfo = new TextField("HDD Info");
+        extra = new TextField("Extra");
+        windowsversion = new TextField("Windows Version");
+        activatedate = new DatePicker("Activate Date");
+        serialnumber = new TextField("Serial Number");
         revoke = new Checkbox("Revoke");
+        appversion = new TextField("App Version");
+        activate = new TextField("Activate");
+        lastseen = new TextField("Last Seen");
         
-        formLayout.add(name, phone, address, bios, macaddress, revoke);
+        
+        formLayout.add(name, phone, address, bios, macaddress, hddinfo, extra, windowsversion, activatedate, serialnumber, revoke, appversion, activate, lastseen);
         editorDiv.add(formLayout);
         createButtonLayout(editorLayoutDiv);
         

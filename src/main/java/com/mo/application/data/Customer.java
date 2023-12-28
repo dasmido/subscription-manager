@@ -1,5 +1,7 @@
 package com.mo.application.data;
 
+import java.time.LocalDate;
+
 import jakarta.persistence.Entity;
 
 @Entity
@@ -12,7 +14,7 @@ public class Customer extends AbstractEntity {
 	private String hddinfo;
 	private String extra;
 	private String windowsversion;
-	private String activatedate;
+	private LocalDate activatedate;
 	private String serialnumber;
 	private boolean revoke;
 	private String appversion;
@@ -67,10 +69,10 @@ public class Customer extends AbstractEntity {
 	public void setWindowsversion(String windowsversion) {
 		this.windowsversion = windowsversion;
 	}
-	public String getActivatedate() {
+	public LocalDate getActivatedate() {
 		return activatedate;
 	}
-	public void setActivatedate(String activatedate) {
+	public void setActivatedate(LocalDate activatedate) {
 		this.activatedate = activatedate;
 	}
 	public String getSerialnumber() {

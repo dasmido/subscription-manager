@@ -111,7 +111,8 @@ public class SerialsView extends Div implements BeforeEnterObserver {
                 sampleAddressService.update(this.sampleAddress);
                 clearForm();
                 refreshGrid();
-                Notification.show("Data updated");
+                Notification nn = Notification.show("Data updated");
+                nn.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                 UI.getCurrent().navigate(SerialsView.class);
             } catch (ObjectOptimisticLockingFailureException exception) {
                 Notification n = Notification.show(
