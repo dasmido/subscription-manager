@@ -1,0 +1,12 @@
+@import url('./main-layout.css');
+@import url('./views/customers-view.css');
+@import url('./views/serials-view.css');
+
+
+vaadin-button {
+  --lumo-primary-text-color: green;
+}
+
+vaadin-login-overlay-wrapper::part(brand){
+	background-color: red;
+}
